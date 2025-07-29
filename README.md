@@ -26,7 +26,7 @@ In app build
 ## User guide
 
 ### Compile and run
-gcc ./main.c -o ./cazpyr
+gcc main.c -o cazpyr -Wall -Wextra -Werror -O3
 
 ./cazpyr \<filename\>
 

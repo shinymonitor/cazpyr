@@ -48,6 +48,7 @@ size_t scroll_start=0;
 size_t screen_width=0;
 size_t screen_height=0;
 
+int ignore=0;
 char *filename = NULL;
 char is_dirty=0;
 
@@ -104,7 +105,7 @@ static inline char getch() {
     }
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
     char ch;
-    read(STDIN_FILENO, &ch, 1);
+    ignore=read(STDIN_FILENO, &ch, 1);
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
     return ch;
 }
@@ -385,7 +386,7 @@ void draw(){
         for (size_t x = start; x < line_lengths[y]; ++x) {
             if (x-start>screen_width-fast_log10(last_filled_line+1)-(start==0?3:4)) {printf("\x1b[K\x1B["LINE_CONT_FG";"LINE_CONT_BG"m>\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m"); break;}
             if ((y == cursor_y) && (x == cursor_x)) printf("\x1B["CURSOR_FG";"CURSOR_BG"m%c\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m", text[y][x]);
-            else if (selecting && (y>select_start_y && y<select_end_y || y==select_start_y && y!=select_end_y && x>=select_start_x || y==select_end_y && y!=select_start_y && x<=select_end_x || y==select_end_y && y==select_start_y && x>=select_start_x && x<=select_end_x)) printf("\x1B["SELECT_FG";"SELECT_BG"m%c\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m", text[y][x]);
+            else if (selecting && ((y>select_start_y && y<select_end_y) || (y==select_start_y && y!=select_end_y && x>=select_start_x) || (y==select_end_y && y!=select_start_y && x<=select_end_x) || (y==select_end_y && y==select_start_y && x>=select_start_x && x<=select_end_x))) printf("\x1B["SELECT_FG";"SELECT_BG"m%c\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m", text[y][x]);
             else printf("\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m%c", text[y][x]);
         }
         if ((y==cursor_y) && (cursor_x==line_lengths[y])) printf("\x1B["CURSOR_FG";"CURSOR_BG"m%c\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m", ' ');
@@ -410,10 +411,10 @@ void handle() {
             printf("\x1b[2J\x1b[H");
             exit(0);
         case KEY_CTRL_B:
-            system(INTIATE_BUILD_COMMAND);
+            ignore=system(INTIATE_BUILD_COMMAND);
             break;
         case KEY_CTRL_R:
-            system(INTIATE_RUN_COMMAND);
+            ignore=system(INTIATE_RUN_COMMAND);
             break;
         case KEY_ARROW_UP:
             if (cursor_y > 0) cursor_y--;
@@ -426,15 +427,15 @@ void handle() {
             cursor_x = desired_cursor_x > line_lengths[cursor_y] ? line_lengths[cursor_y] : desired_cursor_x;
             break;
         case KEY_ARROW_DOWN:
-            if (last_filled_line > 0 && cursor_y < last_filled_line) cursor_y++;
-            else if (cursor_y > last_filled_line) { cursor_y = 0; scroll_start = 0; }
+            if (last_filled_line > 0 && (int)cursor_y < last_filled_line) cursor_y++;
+            else if ((int)cursor_y > last_filled_line) { cursor_y = 0; scroll_start = 0; }
             if (cursor_y >= scroll_start + screen_height) scroll_start++;
             cursor_x = desired_cursor_x > line_lengths[cursor_y] ? line_lengths[cursor_y] : desired_cursor_x;
             break;
         case KEY_CTRL_DOWN:
-            if (scroll_start+screen_height-1<last_filled_line) {scroll_start++; cursor_y++;}
-            else if (cursor_y < last_filled_line) cursor_y++;
-            else if (cursor_y > last_filled_line) { cursor_y = 0; scroll_start = 0; }
+            if ((int)(scroll_start+screen_height-1)<last_filled_line) {scroll_start++; cursor_y++;}
+            else if ((int)cursor_y < last_filled_line) cursor_y++;
+            else if ((int)cursor_y > last_filled_line) { cursor_y = 0; scroll_start = 0; }
             cursor_x = desired_cursor_x > line_lengths[cursor_y] ? line_lengths[cursor_y] : desired_cursor_x;
             break;
         case KEY_ARROW_LEFT:
@@ -458,11 +459,11 @@ void handle() {
             break;
         case KEY_ARROW_RIGHT:
             if (cursor_x < line_lengths[cursor_y]) cursor_x++;
-            else if (cursor_x == line_lengths[cursor_y] && cursor_y!=last_filled_line) {cursor_y++; cursor_x=0;}
+            else if (cursor_x == line_lengths[cursor_y] && (int)cursor_y!=last_filled_line) {cursor_y++; cursor_x=0;}
             desired_cursor_x = cursor_x;
             break;
         case KEY_CTRL_RIGHT:
-            if (cursor_x == line_lengths[cursor_y] && cursor_y!=last_filled_line) {cursor_y++; cursor_x=0;}
+            if (cursor_x == line_lengths[cursor_y] && (int)cursor_y!=last_filled_line) {cursor_y++; cursor_x=0;}
             else {
                 while (cursor_x<line_lengths[cursor_y]-1){
                     if (text[cursor_y][cursor_x+1]==' ') break;
@@ -491,7 +492,7 @@ void handle() {
             break;
         case KEY_PAGE_DOWN:
             if (cursor_y!=scroll_start+screen_height-1) {cursor_y=scroll_start+screen_height-1; break;}
-            if (cursor_y+screen_height>last_filled_line) {cursor_y=last_filled_line; scroll_start=last_filled_line-screen_height+1;}
+            if ((int)(cursor_y+screen_height)>last_filled_line) {cursor_y=last_filled_line; scroll_start=last_filled_line-screen_height+1;}
             else {cursor_y+=screen_height; scroll_start=cursor_y-screen_height+1;}
             break;
         case KEY_CTRL_HOME:
@@ -500,7 +501,7 @@ void handle() {
         case KEY_CTRL_END:
             cursor_x=line_lengths[last_filled_line];
             cursor_y=last_filled_line;
-            if ((scroll_start+screen_height-1)<last_filled_line) scroll_start=last_filled_line-screen_height+1;
+            if ((int)(scroll_start+screen_height-1)<last_filled_line) scroll_start=last_filled_line-screen_height+1;
             break;
         case KEY_DELETE:
             delete_selected_section();
@@ -511,7 +512,7 @@ void handle() {
                 line_lengths[cursor_y]--;
                 is_dirty=1;
             }
-            else if (cursor_x == line_lengths[cursor_y] && cursor_y < last_filled_line) {
+            else if (cursor_x == line_lengths[cursor_y] && (int)cursor_y < last_filled_line) {
                 size_t current_len = line_lengths[cursor_y];
                 size_t next_len = line_lengths[cursor_y + 1];
                 if (current_len + next_len < MAX_COLS) {
@@ -531,7 +532,7 @@ void handle() {
             delete_selected_section();
             if (last_filled_line == MAX_LINES - 1) break;
             if (cursor_y < MAX_LINES - 1) {
-                for (size_t y = MAX_LINES - 1; y > (int)cursor_y; y--) {
+                for (size_t y = MAX_LINES - 1; y > cursor_y; y--) {
                     memcpy(text[y], text[y - 1], MAX_COLS);
                     line_lengths[y] = line_lengths[y - 1];
                 }
@@ -575,10 +576,9 @@ void handle() {
                     }
                     memset(text[MAX_LINES - 1], 0, MAX_COLS);
                     line_lengths[MAX_LINES - 1] = 0;
-                    if (cursor_y < scroll_start) scroll_start--;
+                    if (cursor_y < scroll_start && scroll_start!=0) scroll_start--;
                 }
             }
-            if (scroll_start < 0) scroll_start = 0;
             is_dirty=1;
             break;
         case KEY_TAB:
