@@ -7,15 +7,13 @@ Custom pre-compiled ANSI colors
 
 Build and run shortcuts
 
+Copy, cut and paste with selection
+
 Quality motions like home, end, page control, scroll control, and word jump
 
 No external libraries
 
 ## Todo
-
-Shift select
-
-Cut, Copy, and Paste
 
 Undo and redo
 
