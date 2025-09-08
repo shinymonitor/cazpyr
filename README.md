@@ -1,44 +1,58 @@
 # CAZPYR
-A heap-less minimalist terminal-based text editor within 1000 lines of C code.
+A heap-free minimalist terminal-based text editor written in under 1000 lines of pure C.
+
+## Why Use CAZPYR
+- **Zero heap allocations**: Predictable memory usage with fixed-size buffers
+- **Lightning fast**: No dynamic memory management overhead
+- **Developer-focused**: Built-in build and run shortcuts
+- **Zero dependencies**: Pure C with only standard libraries
+- **Hackable**: Easy to modify codebase under 1000 lines
+
 ## Features
-Terminal window size adapting
 
-Custom pre-compiled ANSI colors
+- Full text editing
+- Copy, cut, and paste with visual selection
+- Smart cursor movement with word jumping
+- Advanced navigation (home, end, page up/down, file start/end, page scroll)
+- Auto-adapting display (responds to terminal window resizing)
+- Build shortcut
+- Run shortcut
+- tmux compatible
+- Line numbers with smart padding
+- Fixed memory footprint (no malloc/free, no memory leaks)
+- Custom ANSI color scheme (easy to modify in source)
+- Efficient rendering (minimal screen updates)
 
-Build and run shortcuts
+## Keybindings
 
-Copy, cut and paste with selection
-
-Quality motions like home, end, page control, scroll control, and word jump
-
-No external libraries
+| Action | Key |
+|--------|-----|
+| **File Operations** |
+| Save | ctrl+s |
+| Quit | ctrl+q |
+| **Build & Run** |
+| Build | ctrl+t |
+| Run | ctrl+r |
+| **Editing** |
+| Copy | ctrl+c |
+| Cut | ctrl+x |
+| Paste | ctrl+v |
+| **Navigation** |
+| Move by word | ctrl + left/right arrow keys |
+| Start/End of line | home/end |
+| Start/End of file | ctrl+home/end |
+| Page scroll | ctrl + up/down arrow keys |
+| **Selection** |
+| Select text | shift + navigation keys |
 
 ## Todo
 
 Undo and redo
+
+Find and Replace
 
 Syntax Highlighting
 
 Better config
 
 In app build
-
-## User guide
-
-### Compile and run
-gcc main.c -o cazpyr -Wall -Wextra -Werror -O3
-
-./cazpyr \<filename\>
-
-### Keys
-Insert and Delete control: characters, space, tab, enter, backspace, delete
-
-Cursor control: arrow keys, home, end, page up, page down, ctrl+(home/end), ctrl+(arrow keys)
-
-Save file: ctrl+s
-
-Quit: ctrl+q
-
-Initiate build: ctrl+b (make a ./BUILD file to be run or change INTIATE_BUILD_COMMAND)
-
-Initiate run: ctrl+r (make a ./RUN file to be run or change INTIATE_RUN_COMMAND)

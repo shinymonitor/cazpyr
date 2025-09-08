@@ -1,15 +1,15 @@
-//MAYBE: UNDO REDO, SYNTAX HIGHLIGHT, BETTER CONFIG, IN APP BUILD
-
+//TODO: UNDO REDO, FIND AND REPLACE, SYNTAX HIGHLIGHT, BETTER CONFIG, IN APP BUILD
+//==============================================
 #include <stdio.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h> 
 #include <stdlib.h>
 #include <sys/ioctl.h>
-
+//==============================================
 #define TAB_SPACES 4
-#define INTIATE_BUILD_COMMAND "gnome-terminal -- bash -c \"./BUILD; exec bash\""
-#define INTIATE_RUN_COMMAND "gnome-terminal -- bash -c \"./RUN; exec bash\""
+#define INTIATE_BUILD_COMMAND "gnome-terminal -- bash -c \"make; exec bash\""
+#define INTIATE_RUN_COMMAND "gnome-terminal -- bash -c \"make run; exec bash\""
 
 #define MAX_LINES 1000
 #define MAX_COLS 1000
@@ -25,67 +25,39 @@
 #define SELECT_BG "47"
 #define STATUS_BAR_FG "34"
 #define STATUS_BAR_BG "107"
-
+//==============================================
 char text[MAX_LINES][MAX_COLS];
 size_t line_lengths[MAX_LINES];
 char clipboard[MAX_LINES][MAX_COLS];
 size_t clipboard_line_lengths[MAX_LINES];
 size_t clipboard_lines = 0;
 
-size_t cursor_x = 0;
-size_t desired_cursor_x=0;
-size_t cursor_y = 0;
-char selecting=0;
-size_t select_x=0;
-size_t select_y=0;
-size_t select_start_x=0;
-size_t select_start_y=0;
-size_t select_end_x=0;
-size_t select_end_y=0;
+size_t cursor_x, desired_cursor_x, cursor_y;
+char selecting;
+size_t select_x, select_y, select_start_x, select_start_y, select_end_x, select_end_y;
 
 int last_filled_line=-1;
-size_t scroll_start=0;
-size_t screen_width=0;
-size_t screen_height=0;
+size_t scroll_start, screen_width, screen_height;
 
-int ignore=0;
 char *filename = NULL;
-char is_dirty=0;
+char is_dirty;
 
+int ignore;
+//==============================================
 typedef enum {
     KEY_NONE,
-    KEY_CHAR,
-    KEY_ENTER,
-    KEY_BACKSPACE,
-    KEY_DELETE,
-    KEY_TAB,
+    KEY_CHAR, KEY_ENTER, KEY_BACKSPACE, KEY_DELETE, KEY_TAB,
 
-    KEY_CTRL_S,
-    KEY_CTRL_Q,
-    KEY_CTRL_B,
-    KEY_CTRL_R,
+    KEY_CTRL_S, KEY_CTRL_Q, 
+    KEY_CTRL_T, KEY_CTRL_R,
 
-    KEY_ARROW_UP,
-    KEY_ARROW_DOWN,
-    KEY_ARROW_LEFT,
-    KEY_ARROW_RIGHT,
-    KEY_HOME,
-    KEY_END,
-    KEY_PAGE_UP,
-    KEY_PAGE_DOWN,
-    KEY_CTRL_HOME,
-    KEY_CTRL_END,
-    KEY_CTRL_UP,
-    KEY_CTRL_DOWN,
-    KEY_CTRL_LEFT,
-    KEY_CTRL_RIGHT,
+    KEY_ARROW_UP, KEY_ARROW_DOWN, KEY_ARROW_LEFT, KEY_ARROW_RIGHT,
+    KEY_HOME, KEY_END, KEY_PAGE_UP, KEY_PAGE_DOWN,
+    KEY_CTRL_HOME, KEY_CTRL_END, KEY_CTRL_UP, KEY_CTRL_DOWN, KEY_CTRL_LEFT, KEY_CTRL_RIGHT,
 
-    KEY_CTRL_C,
-    KEY_CTRL_X,
-    KEY_CTRL_V,
+    KEY_CTRL_C, KEY_CTRL_X, KEY_CTRL_V,
 
-    KEY_CTRL_Z,
-    KEY_CTRL_Y,
+    KEY_CTRL_Z, KEY_CTRL_Y,
 } Key;
 
 typedef struct {
@@ -110,6 +82,13 @@ static inline char getch() {
     return ch;
 }
 
+static inline void update_screen_dimensions(){
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    screen_height=(size_t)w.ws_row-2;
+    screen_width=(size_t)w.ws_col;
+}
+
 KeyEvent get_key() {
     KeyEvent ev = { .key = KEY_NONE, .ch = 0 };
     int c = getch();
@@ -121,7 +100,7 @@ KeyEvent get_key() {
         case 25: ev.key = KEY_CTRL_Y; selecting=0; break;
         case 19: ev.key = KEY_CTRL_S; selecting=0; break;
         case 17: ev.key = KEY_CTRL_Q; selecting=0; break;
-        case 2:  ev.key = KEY_CTRL_B; selecting=0; break;
+        case 20: ev.key = KEY_CTRL_T; selecting=0; break;
         case 18: ev.key = KEY_CTRL_R; selecting=0; break;
         case 10: ev.key = KEY_ENTER; selecting=0; break;
         case 127: ev.key = KEY_BACKSPACE; selecting=0; break;
@@ -192,7 +171,7 @@ KeyEvent get_key() {
     }
     return ev;
 }
-
+//==============================================
 static inline int fast_log10(int n) {
     if (n < 10) return 1;
     if (n < 100) return 2;
@@ -200,14 +179,7 @@ static inline int fast_log10(int n) {
     if (n < 10000) return 4;
     return 5;
 }
-
-static inline void update_screen_dimensions(){
-    struct winsize w;
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-    screen_height=(size_t)w.ws_row-2;
-    screen_width=(size_t)w.ws_col;
-}
-
+//==============================================
 static inline void load_file(const char *fname) {
     FILE *file = fopen(fname, "r");
     if (!file) return;
@@ -243,7 +215,42 @@ static inline void save_file() {
     fclose(file);
     is_dirty=0;
 }
-
+//==============================================
+void draw(){
+    printf("\x1b[H");
+    int file_empty=1;
+    for (int y = MAX_LINES-1; y >= 0; y--) if (line_lengths[y]!=0) {last_filled_line=(int)y; file_empty=0; break;}
+    if (file_empty==1) last_filled_line=-1;
+    for (size_t y = scroll_start; y < MAX_LINES && y < scroll_start+screen_height; y++) {
+        printf("\x1b["LINE_NUMBERS_FG";"TEXT_AND_LINE_NUMBERS_BG"m");
+        if ((int)y > last_filled_line && y>cursor_y) {
+            printf("\x1b[K~\n");
+            continue;
+        }
+        printf("\x1b[K%ld", y + 1);
+        int line_number_padding=fast_log10(last_filled_line+1)-fast_log10(y+1)+1;
+        printf("%*c", line_number_padding,' ');
+        printf("\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m");
+        size_t start=0;
+        if (y==cursor_y && cursor_x>screen_width-fast_log10(last_filled_line+1)-3 && line_lengths[y]>screen_width-fast_log10(last_filled_line+1)-3) {printf("\x1b[K\x1B["LINE_CONT_FG";"LINE_CONT_BG"m<\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m"); start=cursor_x-cursor_x%(screen_width-fast_log10(last_filled_line+1)-3);}
+        for (size_t x = start; x < line_lengths[y]; ++x) {
+            if (x-start>screen_width-fast_log10(last_filled_line+1)-(start==0?3:4)) {printf("\x1b[K\x1B["LINE_CONT_FG";"LINE_CONT_BG"m>\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m"); break;}
+            if ((y == cursor_y) && (x == cursor_x)) printf("\x1B["CURSOR_FG";"CURSOR_BG"m%c\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m", text[y][x]);
+            else if (selecting && ((y>select_start_y && y<select_end_y) || (y==select_start_y && y!=select_end_y && x>=select_start_x) || (y==select_end_y && y!=select_start_y && x<=select_end_x) || (y==select_end_y && y==select_start_y && x>=select_start_x && x<=select_end_x))) printf("\x1B["SELECT_FG";"SELECT_BG"m%c\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m", text[y][x]);
+            else printf("\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m%c", text[y][x]);
+        }
+        if ((y==cursor_y) && (cursor_x==line_lengths[y])) printf("\x1B["CURSOR_FG";"CURSOR_BG"m%c\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m", ' ');
+        printf("\n");
+    }
+    printf("\x1b[K\x1B["STATUS_BAR_FG";"STATUS_BAR_BG"m%ld:%ld",cursor_y+1, cursor_x+1);
+    if (filename) printf(" %s", filename);
+    int status_bar_padding=screen_width-(fast_log10(cursor_y+1)+fast_log10(cursor_x+1)+(int)strlen(filename)+fast_log10(last_filled_line+2))-3;
+    if (is_dirty==1) printf(" *");
+    else status_bar_padding+=2;
+    printf("%*c", status_bar_padding, ' ');
+    printf("\x1B[0m\n");
+}
+//==============================================
 static inline void delete_selected_section() {
     if (select_start_x == select_end_x && select_start_y == select_end_y) return;
     if (select_start_y == select_end_y) {
@@ -365,42 +372,7 @@ static inline void paste_clipboard() {
     }
     desired_cursor_x = cursor_x;
 }
-
-void draw(){
-    printf("\x1b[H");
-    int file_empty=1;
-    for (int y = MAX_LINES-1; y >= 0; y--) if (line_lengths[y]!=0) {last_filled_line=(int)y; file_empty=0; break;}
-    if (file_empty==1) last_filled_line=-1;
-    for (size_t y = scroll_start; y < MAX_LINES && y < scroll_start+screen_height; y++) {
-        printf("\x1b["LINE_NUMBERS_FG";"TEXT_AND_LINE_NUMBERS_BG"m");
-        if ((int)y > last_filled_line && y>cursor_y) {
-            printf("\x1b[K~\n");
-            continue;
-        }
-        printf("\x1b[K%ld", y + 1);
-        int line_number_padding=fast_log10(last_filled_line+1)-fast_log10(y+1)+1;
-        printf("%*c", line_number_padding,' ');
-        printf("\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m");
-        size_t start=0;
-        if (y==cursor_y && cursor_x>screen_width-fast_log10(last_filled_line+1)-3 && line_lengths[y]>screen_width-fast_log10(last_filled_line+1)-3) {printf("\x1b[K\x1B["LINE_CONT_FG";"LINE_CONT_BG"m<\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m"); start=cursor_x-cursor_x%(screen_width-fast_log10(last_filled_line+1)-3);}
-        for (size_t x = start; x < line_lengths[y]; ++x) {
-            if (x-start>screen_width-fast_log10(last_filled_line+1)-(start==0?3:4)) {printf("\x1b[K\x1B["LINE_CONT_FG";"LINE_CONT_BG"m>\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m"); break;}
-            if ((y == cursor_y) && (x == cursor_x)) printf("\x1B["CURSOR_FG";"CURSOR_BG"m%c\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m", text[y][x]);
-            else if (selecting && ((y>select_start_y && y<select_end_y) || (y==select_start_y && y!=select_end_y && x>=select_start_x) || (y==select_end_y && y!=select_start_y && x<=select_end_x) || (y==select_end_y && y==select_start_y && x>=select_start_x && x<=select_end_x))) printf("\x1B["SELECT_FG";"SELECT_BG"m%c\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m", text[y][x]);
-            else printf("\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m%c", text[y][x]);
-        }
-        if ((y==cursor_y) && (cursor_x==line_lengths[y])) printf("\x1B["CURSOR_FG";"CURSOR_BG"m%c\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m", ' ');
-        printf("\n");
-    }
-    printf("\x1b[K\x1B["STATUS_BAR_FG";"STATUS_BAR_BG"m%ld:%ld",cursor_y+1, cursor_x+1);
-    if (filename) printf(" %s", filename);
-    int status_bar_padding=screen_width-(fast_log10(cursor_y+1)+fast_log10(cursor_x+1)+(int)strlen(filename)+fast_log10(last_filled_line+2))-3;
-    if (is_dirty==1) printf(" *");
-    else status_bar_padding+=2;
-    printf("%*c", status_bar_padding, ' ');
-    printf("\x1B[0m\n");
-}
-
+//==============================================
 void handle() {
     KeyEvent ev = get_key();
     switch (ev.key) {
@@ -410,7 +382,7 @@ void handle() {
         case KEY_CTRL_Q:
             printf("\x1b[2J\x1b[H");
             exit(0);
-        case KEY_CTRL_B:
+        case KEY_CTRL_T:
             ignore=system(INTIATE_BUILD_COMMAND);
             break;
         case KEY_CTRL_R:
@@ -627,7 +599,7 @@ void handle() {
     else if (cursor_x>select_x) {select_start_y=select_y; select_start_x=select_x; select_end_y=cursor_y; select_end_x=cursor_x;}
     else  {select_start_y=cursor_y; select_start_x=cursor_x; select_end_y=select_y; select_end_x=select_x;}
 }
-
+//==============================================
 int main(int argc, char *argv[]) {
     for (int r = 0; r < MAX_LINES; ++r) {
         memset(text[r], 0, MAX_COLS);
@@ -637,7 +609,10 @@ int main(int argc, char *argv[]) {
         filename = argv[1];
         load_file(filename);
     }
-    else return 1;
+    else {
+        printf("ERROR: Provide a valid filename as argument\n");
+        return 1;
+    }
     printf("\x1b[2J\x1b[H");
     while (1){
         update_screen_dimensions();
