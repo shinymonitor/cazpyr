@@ -1,4 +1,4 @@
-//TODO: UNDO REDO, FIND AND REPLACE, SYNTAX HIGHLIGHT, BETTER CONFIG, IN APP BUILD
+//TODO: UNDO REDO, SYNTAX HIGHLIGHT
 //==============================================
 #include <stdio.h>
 #include <string.h>
@@ -7,64 +7,69 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 //==============================================
-#define TAB_SPACES 4
-#define INTIATE_BUILD_COMMAND "gnome-terminal -- bash -c \"make; exec bash\""
-#define INTIATE_RUN_COMMAND "gnome-terminal -- bash -c \"make run; exec bash\""
-
-#define MAX_LINES 1000
-#define MAX_COLS 1000
-
-#define TEXT_FG "97"
-#define LINE_NUMBERS_FG "94"
-#define TEXT_AND_LINE_NUMBERS_BG "44"
-#define LINE_CONT_FG "94"
-#define LINE_CONT_BG "107"
-#define CURSOR_FG "34"
-#define CURSOR_BG "107"
-#define SELECT_FG "34"
-#define SELECT_BG "47"
-#define STATUS_BAR_FG "34"
-#define STATUS_BAR_BG "107"
+#define BLOOD_FG "31"
+#define BLOOD_BG "41"
+#define RED_FG "91"
+#define RED_BG "101"
+#define LEAF_FG "32"
+#define LEAF_BG "42"
+#define GREEN_FG "92"
+#define GREEN_BG "102"
+#define COBALT_FG "34"
+#define COBALT_BG "44"
+#define BLUE_FG "94"
+#define BLUE_BG "104" 
+#define OIL_FG "33"
+#define OIL_BG "43"
+#define YELLOW_FG "93"
+#define YELLOW_BG "103"
+#define TURQ_FG "36"
+#define TURQ_BG "46"
+#define CYAN_FG "96"
+#define CYAN_BG "106"
+#define PURPLE_FG "35"
+#define PURPLE_BG "45"
+#define MAGENTA_FG "95"
+#define MAGENTA_BG "105"
+#define BLACK_FG "30"
+#define BLACK_BG "40"
+#define GRAY_FG "90"
+#define GRAY_BG "100"
+#define PAPER_FG "37"
+#define PAPER_BG "47"
+#define WHITE_FG "97"
+#define WHITE_BG "107"
+//==============================================
+#include "config.h"
 //==============================================
 char text[MAX_LINES][MAX_COLS];
 size_t line_lengths[MAX_LINES];
 char clipboard[MAX_LINES][MAX_COLS];
 size_t clipboard_line_lengths[MAX_LINES];
 size_t clipboard_lines = 0;
-
+char find_clipboard[MAX_COLS];
 size_t cursor_x, desired_cursor_x, cursor_y;
 char selecting;
 size_t select_x, select_y, select_start_x, select_start_y, select_end_x, select_end_y;
-
 int last_filled_line=-1;
 size_t scroll_start, screen_width, screen_height;
-
 char *filename = NULL;
 char is_dirty;
-
 int ignore;
 //==============================================
 typedef enum {
     KEY_NONE,
     KEY_CHAR, KEY_ENTER, KEY_BACKSPACE, KEY_DELETE, KEY_TAB,
-
     KEY_CTRL_S, KEY_CTRL_Q, 
     KEY_CTRL_T, KEY_CTRL_R,
-
     KEY_ARROW_UP, KEY_ARROW_DOWN, KEY_ARROW_LEFT, KEY_ARROW_RIGHT,
     KEY_HOME, KEY_END, KEY_PAGE_UP, KEY_PAGE_DOWN,
     KEY_CTRL_HOME, KEY_CTRL_END, KEY_CTRL_UP, KEY_CTRL_DOWN, KEY_CTRL_LEFT, KEY_CTRL_RIGHT,
-
     KEY_CTRL_C, KEY_CTRL_X, KEY_CTRL_V,
-
-    KEY_CTRL_Z, KEY_CTRL_Y,
+//    KEY_CTRL_Z, KEY_CTRL_Y,
+    KEY_CTRL_F, KEY_CTRL_D,
 } Key;
-
-typedef struct {
-    Key key;
-    char ch;
-} KeyEvent;
-
+typedef struct {Key key; char ch;} KeyEvent;
 static inline char getch() {
     static struct termios oldt, newt;
     static int initialized = 0;
@@ -81,14 +86,6 @@ static inline char getch() {
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
     return ch;
 }
-
-static inline void update_screen_dimensions(){
-    struct winsize w;
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-    screen_height=(size_t)w.ws_row-2;
-    screen_width=(size_t)w.ws_col;
-}
-
 KeyEvent get_key() {
     KeyEvent ev = { .key = KEY_NONE, .ch = 0 };
     int c = getch();
@@ -96,12 +93,14 @@ KeyEvent get_key() {
         case 3:  ev.key = KEY_CTRL_C; selecting=0; break;
         case 24: ev.key = KEY_CTRL_X; selecting=0; break;
         case 22: ev.key = KEY_CTRL_V; selecting=0; break;
-        case 26: ev.key = KEY_CTRL_Z; selecting=0; break;
-        case 25: ev.key = KEY_CTRL_Y; selecting=0; break;
+        // case 26: ev.key = KEY_CTRL_Z; selecting=0; break;
+        // case 25: ev.key = KEY_CTRL_Y; selecting=0; break;
         case 19: ev.key = KEY_CTRL_S; selecting=0; break;
         case 17: ev.key = KEY_CTRL_Q; selecting=0; break;
         case 20: ev.key = KEY_CTRL_T; selecting=0; break;
         case 18: ev.key = KEY_CTRL_R; selecting=0; break;
+        case 4:  ev.key = KEY_CTRL_D; selecting=0; break;
+        case 6:  ev.key = KEY_CTRL_F; selecting=1; break;
         case 10: ev.key = KEY_ENTER; selecting=0; break;
         case 127: ev.key = KEY_BACKSPACE; selecting=0; break;
         case 9:  ev.key = KEY_TAB; selecting=0; break;
@@ -177,7 +176,8 @@ static inline int fast_log10(int n) {
     if (n < 100) return 2;
     if (n < 1000) return 3;
     if (n < 10000) return 4;
-    return 5;
+    if (n < 100000) return 5;
+    return 6;
 }
 //==============================================
 static inline void load_file(const char *fname) {
@@ -187,14 +187,8 @@ static inline void load_file(const char *fname) {
     char buffer[MAX_COLS];
     while (fgets(buffer, MAX_COLS, file) && line < MAX_LINES) {
         size_t len = strlen(buffer);
-        if (len > 0 && buffer[len-1] == '\n') {
-            buffer[len-1] = '\0';
-            len--;
-        }
-        if (len > 0 && buffer[len-1] == '\r') {
-            buffer[len-1] = '\0';
-            len--;
-        }
+        if (len > 0 && buffer[len-1] == '\n') {buffer[len-1] = '\0'; len--;}
+        if (len > 0 && buffer[len-1] == '\r') {buffer[len-1] = '\0'; len--;}
         strcpy(text[line], buffer);
         line_lengths[line] = len;
         line++;
@@ -208,33 +202,34 @@ static inline void save_file() {
     if (!file) return;
     for (int i = 0; i <= last_filled_line; i++) {
         if (i > 0) fprintf(file, "\n");
-        for (size_t j = 0; j < line_lengths[i]; j++) {
-            fputc(text[i][j], file);
-        }
+        for (size_t j = 0; j < line_lengths[i]; j++) fputc(text[i][j], file);
     }
     fclose(file);
     is_dirty=0;
 }
 //==============================================
-void draw(){
+static inline void update_screen_dimensions(){
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    screen_height=(size_t)w.ws_row-2;
+    screen_width=(size_t)w.ws_col;
+}
+static inline void draw(){
     printf("\x1b[H");
     int file_empty=1;
     for (int y = MAX_LINES-1; y >= 0; y--) if (line_lengths[y]!=0) {last_filled_line=(int)y; file_empty=0; break;}
     if (file_empty==1) last_filled_line=-1;
     for (size_t y = scroll_start; y < MAX_LINES && y < scroll_start+screen_height; y++) {
         printf("\x1b["LINE_NUMBERS_FG";"TEXT_AND_LINE_NUMBERS_BG"m");
-        if ((int)y > last_filled_line && y>cursor_y) {
-            printf("\x1b[K~\n");
-            continue;
-        }
+        if ((int)y > last_filled_line && y>cursor_y) {printf("\x1b[K~\n"); continue;}
         printf("\x1b[K%ld", y + 1);
         int line_number_padding=fast_log10(last_filled_line+1)-fast_log10(y+1)+1;
         printf("%*c", line_number_padding,' ');
         printf("\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m");
         size_t start=0;
-        if (y==cursor_y && cursor_x>screen_width-fast_log10(last_filled_line+1)-3 && line_lengths[y]>screen_width-fast_log10(last_filled_line+1)-3) {printf("\x1b[K\x1B["LINE_CONT_FG";"LINE_CONT_BG"m<\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m"); start=cursor_x-cursor_x%(screen_width-fast_log10(last_filled_line+1)-3);}
+        if (y==cursor_y && cursor_x>screen_width-fast_log10(last_filled_line+1)-3 && line_lengths[y]>screen_width-fast_log10(last_filled_line+1)-3) {printf("\x1b[K\x1B["LINE_CONTINUE_FG";"LINE_CONTINUE_BG"m<\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m"); start=cursor_x-cursor_x%(screen_width-fast_log10(last_filled_line+1)-3);}
         for (size_t x = start; x < line_lengths[y]; ++x) {
-            if (x-start>screen_width-fast_log10(last_filled_line+1)-(start==0?3:4)) {printf("\x1b[K\x1B["LINE_CONT_FG";"LINE_CONT_BG"m>\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m"); break;}
+            if (x-start>screen_width-fast_log10(last_filled_line+1)-(start==0?3:4)) {printf("\x1b[K\x1B["LINE_CONTINUE_FG";"LINE_CONTINUE_BG"m>\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m"); break;}
             if ((y == cursor_y) && (x == cursor_x)) printf("\x1B["CURSOR_FG";"CURSOR_BG"m%c\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m", text[y][x]);
             else if (selecting && ((y>select_start_y && y<select_end_y) || (y==select_start_y && y!=select_end_y && x>=select_start_x) || (y==select_end_y && y!=select_start_y && x<=select_end_x) || (y==select_end_y && y==select_start_y && x>=select_start_x && x<=select_end_x))) printf("\x1B["SELECT_FG";"SELECT_BG"m%c\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m", text[y][x]);
             else printf("\x1b["TEXT_FG";"TEXT_AND_LINE_NUMBERS_BG"m%c", text[y][x]);
@@ -249,17 +244,14 @@ void draw(){
     else status_bar_padding+=2;
     printf("%*c", status_bar_padding, ' ');
     printf("\x1B[0m\n");
+    printf("%s", find_clipboard);
 }
 //==============================================
 static inline void delete_selected_section() {
     if (select_start_x == select_end_x && select_start_y == select_end_y) return;
     if (select_start_y == select_end_y) {
-        for (size_t i = select_start_x; i < line_lengths[select_start_y] - (select_end_x - select_start_x); i++) {
-            text[select_start_y][i] = text[select_start_y][i + (select_end_x - select_start_x)];
-        }
-        for (size_t i = line_lengths[select_start_y] - (select_end_x - select_start_x); i < line_lengths[select_start_y]; i++) {
-            text[select_start_y][i] = 0;
-        }
+        for (size_t i = select_start_x; i < line_lengths[select_start_y] - (select_end_x - select_start_x); i++) text[select_start_y][i] = text[select_start_y][i + (select_end_x - select_start_x)];
+        for (size_t i = line_lengths[select_start_y] - (select_end_x - select_start_x); i < line_lengths[select_start_y]; i++) text[select_start_y][i] = 0;
         line_lengths[select_start_y] -= (select_end_x - select_start_x);
         cursor_x = select_start_x;
         cursor_y = select_start_y;
@@ -292,7 +284,6 @@ static inline void delete_selected_section() {
     desired_cursor_x = cursor_x;
     is_dirty = 1;
 }
-
 static inline void copy_selection() {
     clipboard_lines = 0;
     if (select_start_y == select_end_y) {
@@ -322,7 +313,6 @@ static inline void copy_selection() {
         clipboard_lines = clip_line;
     }
 }
-
 static inline void paste_clipboard() {
     if (clipboard_lines == 0) return;
     if (clipboard_lines == 1) {
@@ -339,9 +329,7 @@ static inline void paste_clipboard() {
         if (last_filled_line + clipboard_lines >= MAX_LINES) return;
         size_t remaining_length = line_lengths[cursor_y] - cursor_x;
         char temp_line[MAX_COLS];
-        if (remaining_length > 0) {
-            memcpy(temp_line, &text[cursor_y][cursor_x], remaining_length);
-        }
+        if (remaining_length > 0) memcpy(temp_line, &text[cursor_y][cursor_x], remaining_length);
         for (size_t y = MAX_LINES - 1; y > cursor_y + clipboard_lines - 1; y--) {
             if (y - clipboard_lines + 1 < MAX_LINES) {
                 memcpy(text[y], text[y - clipboard_lines + 1], MAX_COLS);
@@ -372,8 +360,76 @@ static inline void paste_clipboard() {
     }
     desired_cursor_x = cursor_x;
 }
+static inline void find_next_occurrence() {
+    size_t search_len = strlen(find_clipboard);
+    if (search_len == 0) return;
+    size_t start_y = cursor_y;
+    size_t start_x = cursor_x;
+    if (selecting && select_start_y == select_end_y && select_end_x - select_start_x == search_len && strncmp(&text[select_start_y][select_start_x], find_clipboard, search_len) == 0) start_x = select_end_x;
+    for (size_t y = start_y; y <= (size_t)last_filled_line; y++) {
+        size_t search_start_x = (y == start_y) ? start_x : 0;
+        if (line_lengths[y] < search_len) continue;
+        for (size_t x = search_start_x; x + search_len <= line_lengths[y]; x++) {
+            if (strncmp(&text[y][x], find_clipboard, search_len) == 0) {
+                cursor_y = y;
+                cursor_x = x;
+                selecting = 1;
+                select_x = x;
+                select_y = y;
+                select_start_x = x;
+                select_start_y = y;
+                select_end_x = x + search_len;
+                select_end_y = y;
+                cursor_x = x + search_len;
+                desired_cursor_x = cursor_x;
+                if (cursor_y < scroll_start) scroll_start = cursor_y;
+                if (cursor_y >= scroll_start + screen_height) scroll_start = cursor_y - screen_height + 1;
+                return;
+            }
+        }
+    }
+    for (size_t y = 0; y < start_y; y++) {
+        if (line_lengths[y] < search_len) continue;
+        for (size_t x = 0; x + search_len <= line_lengths[y]; x++) {
+            if (strncmp(&text[y][x], find_clipboard, search_len) == 0) {
+                cursor_y = y;
+                cursor_x = x;
+                selecting = 1;
+                select_x = x;
+                select_y = y;
+                select_start_x = x;
+                select_start_y = y;
+                select_end_x = x + search_len;
+                select_end_y = y;
+                cursor_x = x + search_len;
+                desired_cursor_x = cursor_x;
+                if (cursor_y < scroll_start) scroll_start = cursor_y;
+                if (cursor_y >= scroll_start + screen_height) scroll_start = cursor_y - screen_height + 1;
+                return;
+            }
+        }
+    }
+    if (start_y <= (size_t)last_filled_line && line_lengths[start_y] >= search_len) {
+        for (size_t x = 0; x < start_x && x + search_len <= line_lengths[start_y]; x++) {
+            if (strncmp(&text[start_y][x], find_clipboard, search_len) == 0) {
+                cursor_y = start_y;
+                cursor_x = x;
+                selecting = 1;
+                select_x = x;
+                select_y = start_y;
+                select_start_x = x;
+                select_start_y = start_y;
+                select_end_x = x + search_len;
+                select_end_y = start_y;
+                cursor_x = x + search_len;
+                desired_cursor_x = cursor_x;
+                return;
+            }
+        }
+    }
+}
 //==============================================
-void handle() {
+static inline void handle() {
     KeyEvent ev = get_key();
     switch (ev.key) {
         case KEY_CTRL_S:
@@ -478,9 +534,7 @@ void handle() {
         case KEY_DELETE:
             delete_selected_section();
             if (cursor_x < line_lengths[cursor_y]) {
-                for (size_t i = cursor_x; i < line_lengths[cursor_y] - 1; i++) {
-                    text[cursor_y][i] = text[cursor_y][i + 1];
-                }
+                for (size_t i = cursor_x; i < line_lengths[cursor_y] - 1; i++) text[cursor_y][i] = text[cursor_y][i + 1];
                 line_lengths[cursor_y]--;
                 is_dirty=1;
             }
@@ -529,9 +583,7 @@ void handle() {
             if (select_start_x!=select_end_x || select_start_y!=select_end_y) delete_selected_section();
             else if (cursor_x > 0) {
                 cursor_x--;
-                for (size_t i = cursor_x; i < line_lengths[cursor_y] - 1; i++) {
-                    text[cursor_y][i] = text[cursor_y][i + 1];
-                }
+                for (size_t i = cursor_x; i < line_lengths[cursor_y] - 1; i++) text[cursor_y][i] = text[cursor_y][i + 1];
                 text[cursor_y][--line_lengths[cursor_y]] = 0;
             } 
             else if (cursor_y > 0) {
@@ -557,9 +609,7 @@ void handle() {
             delete_selected_section();
             if (line_lengths[cursor_y] + TAB_SPACES < MAX_COLS && cursor_x + TAB_SPACES <= MAX_COLS) {
                 for (int i = 0 ; i < TAB_SPACES; i++) {
-                    for (size_t j = line_lengths[cursor_y]; j > cursor_x; j--) {
-                        text[cursor_y][j] = text[cursor_y][j - 1];
-                    }
+                    for (size_t j = line_lengths[cursor_y]; j > cursor_x; j--) text[cursor_y][j] = text[cursor_y][j - 1];
                     text[cursor_y][cursor_x++] = ' ';
                     line_lengths[cursor_y]++;
                 }
@@ -569,9 +619,7 @@ void handle() {
         case KEY_CHAR:
             delete_selected_section();
             if (line_lengths[cursor_y] < MAX_COLS) {
-                for (size_t i = line_lengths[cursor_y]; i > cursor_x; i--) {
-                    text[cursor_y][i] = text[cursor_y][i - 1];
-                }
+                for (size_t i = line_lengths[cursor_y]; i > cursor_x; i--) text[cursor_y][i] = text[cursor_y][i - 1];
                 text[cursor_y][cursor_x++] = ev.ch;
                 line_lengths[cursor_y]++;
                 is_dirty=1;
@@ -587,6 +635,20 @@ void handle() {
         case KEY_CTRL_V:
             delete_selected_section();
             paste_clipboard();
+            break;
+        case KEY_CTRL_F:
+            if (selecting && select_start_y == select_end_y && select_start_x != select_end_x) {
+                size_t length = select_end_x - select_start_x;
+                if (length < MAX_COLS) {
+                    memset(find_clipboard, 0, MAX_COLS);
+                    for (size_t i = 0; i < length; i++) find_clipboard[i] = text[select_start_y][select_start_x + i];
+                    find_clipboard[length] = '\0';
+                }
+            }
+            selecting=0;
+            break;
+        case KEY_CTRL_D:
+            if (strlen(find_clipboard) > 0) find_next_occurrence();
             break;
         default:
             break;

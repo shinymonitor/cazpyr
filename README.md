@@ -1,9 +1,11 @@
 # CAZPYR
-A heap-free minimalist terminal-based text editor written in under 1000 lines of pure C.
+A heap-free minimalist terminal-based text editor written in pure C.
+
+![POWERSHELL STYLE](assets/POWERSHELL.png)
 
 ## Why Use CAZPYR
 - **Zero heap allocations**: Predictable memory usage with fixed-size buffers
-- **Lightning fast**: No dynamic memory management overhead
+- **Fast**: No dynamic memory management overhead
 - **Developer-focused**: Built-in build and run shortcuts
 - **Zero dependencies**: Pure C with only standard libraries
 - **Hackable**: Easy to modify codebase under 1000 lines
@@ -11,9 +13,10 @@ A heap-free minimalist terminal-based text editor written in under 1000 lines of
 ## Features
 
 - Full text editing
+- Cursor movement with word jumping
+- Advance navigation (home, end, page up/down, file start/end, page scroll)
 - Copy, cut, and paste with visual selection
-- Smart cursor movement with word jumping
-- Advanced navigation (home, end, page up/down, file start/end, page scroll)
+- Find next instance
 - Auto-adapting display (responds to terminal window resizing)
 - Build shortcut
 - Run shortcut
@@ -33,10 +36,6 @@ A heap-free minimalist terminal-based text editor written in under 1000 lines of
 | **Build & Run** |
 | Build | ctrl+t |
 | Run | ctrl+r |
-| **Editing** |
-| Copy | ctrl+c |
-| Cut | ctrl+x |
-| Paste | ctrl+v |
 | **Navigation** |
 | Move by word | ctrl + left/right arrow keys |
 | Start/End of line | home/end |
@@ -44,15 +43,23 @@ A heap-free minimalist terminal-based text editor written in under 1000 lines of
 | Page scroll | ctrl + up/down arrow keys |
 | **Selection** |
 | Select text | shift + navigation keys |
+| **Editing** |
+| Copy | ctrl+c |
+| Cut | ctrl+x |
+| Paste | ctrl+v |
+| **Find** |
+| Select into find | ctrl+f |
+| Select next instance of find | ctrl+d |
+
+## Screenshots
+
+![PURP STYLE](assets/PURP.png)
+
+![GREEN DARK STYLE](assets/GREEN_DARK.png)
+
+![TMUX](assets/TMUX.png)
 
 ## Todo
 
-Undo and redo
-
-Find and Replace
-
-Syntax Highlighting
-
-Better config
-
-In app build
+- Undo and redo
+- Syntax Highlighting
