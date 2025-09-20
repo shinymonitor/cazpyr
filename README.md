@@ -17,13 +17,12 @@ A heap-free minimalist terminal-based text editor written in pure C.
 - Advance navigation (home, end, page up/down, file start/end, page scroll)
 - Copy, cut, and paste with visual selection
 - Find next instance
-- Auto-adapting display (responds to terminal window resizing)
-- Build shortcut
-- Run shortcut
-- tmux compatible
 - Line numbers with smart padding
-- Fixed memory footprint (no malloc/free, no memory leaks)
 - Custom ANSI color scheme (easy to modify in source)
+- Auto-adapting display (responds to terminal window resizing)
+- Build and run shortcut
+- tmux compatible
+- Fixed memory footprint (no malloc/free, no memory leaks)
 - Efficient rendering (minimal screen updates)
 
 ## Keybindings
@@ -48,8 +47,8 @@ A heap-free minimalist terminal-based text editor written in pure C.
 | Cut | ctrl+x |
 | Paste | ctrl+v |
 | **Find** |
-| Select into find | ctrl+f |
-| Select next instance of find | ctrl+d |
+| Select into finder | ctrl+f |
+| Select next instance | ctrl+d |
 
 ## Screenshots
 
