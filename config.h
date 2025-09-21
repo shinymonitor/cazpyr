@@ -43,4 +43,3 @@
 //====================ALLOC==========================
 #define MAX_LINES 1000
 #define MAX_COLS 1000
-#define MAX_STACK_SIZE 100

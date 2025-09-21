@@ -1,7 +1,10 @@
 # CAZPYR
-A heap-free minimalist terminal-based text editor written in pure C.
 
-![POWERSHELL STYLE](assets/POWERSHELL.png)
+<p align="center">
+    <img src="assets/LOGO.gif", width="200" \>
+</p>
+
+A heap-less minimalist terminal-based text editor written in pure C.
 
 ## Why Use CAZPYR
 - **Zero heap allocations**: Predictable memory usage with fixed-size buffers
@@ -16,13 +19,14 @@ A heap-free minimalist terminal-based text editor written in pure C.
 - Cursor movement with word jumping
 - Advance navigation (home, end, page up/down, file start/end, page scroll)
 - Copy, cut, and paste with visual selection
-- Find next instance
-- Line numbers with smart padding
-- Custom ANSI color scheme (easy to modify in source)
+- Jump to and select next instance
 - Auto-adapting display (responds to terminal window resizing)
-- Build and run shortcut
+- Build shortcut
+- Run shortcut
 - tmux compatible
+- Line numbers with smart padding
 - Fixed memory footprint (no malloc/free, no memory leaks)
+- Custom ANSI color scheme (easy to modify in source)
 - Efficient rendering (minimal screen updates)
 
 ## Keybindings
@@ -47,10 +51,12 @@ A heap-free minimalist terminal-based text editor written in pure C.
 | Cut | ctrl+x |
 | Paste | ctrl+v |
 | **Find** |
-| Select into finder | ctrl+f |
-| Select next instance | ctrl+d |
+| Select into find | ctrl+f |
+| Select next instance of find | ctrl+d |
 
 ## Screenshots
+
+![POWERSHELL STYLE](assets/POWERSHELL.png)
 
 ![PURP STYLE](assets/PURP.png)
 
