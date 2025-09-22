@@ -20,13 +20,12 @@ A heap-less minimalist terminal-based text editor written in pure C.
 - Advance navigation (home, end, page up/down, file start/end, page scroll)
 - Copy, cut, and paste with visual selection
 - Jump to and select next instance
-- Auto-adapting display (responds to terminal window resizing)
-- Build shortcut
-- Run shortcut
+- Build and run shortcuts
 - tmux compatible
 - Line numbers with smart padding
-- Fixed memory footprint (no malloc/free, no memory leaks)
+- Auto-adapting display (responds to terminal window resizing)
 - Custom ANSI color scheme (easy to modify in source)
+- Fixed memory footprint (no malloc/free, no memory leaks)
 - Efficient rendering (minimal screen updates)
 
 ## Keybindings
