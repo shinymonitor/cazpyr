@@ -1,8 +1,7 @@
-# CAZPYR
-
-<p align="center">
-    <img src="assets/LOGO.gif", width="200" \>
-</p>
+<div align="center">
+    <img src="assets/LOGO.gif", width="200"/>
+    <h1>CAZPYR</h1>
+</div>
 
 A heap-less minimalist terminal-based text editor written in pure C.
 
